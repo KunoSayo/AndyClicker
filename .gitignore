@@ -1,0 +1,20 @@
+*.pdf
+.idea
+.vsc
+*.iml
+
+target
+
+
+*.exe
+
+
+*.dll
+
+# maybe the pth runtime output
+*.log
+*/**/screenshots/**
+opt.cfg
+
+*.bat
+*.sh

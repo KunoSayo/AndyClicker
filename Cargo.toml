@@ -1,0 +1,46 @@
+[package]
+name = "andy_clicker_core"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = ["andy_clicker"]
+
+[lib]
+name = "andy_clicker_core"
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+
+#engine core
+winit = "0.27"
+wgpu = "0.13.1"
+wgpu_glyph = "*"
+mlua = { version = "0.8.3", features = ["lua54", "vendored"] }
+egui = "0.19.0"
+egui-wgpu = "0.19.0"
+egui-winit = "0.19.0"
+futures = { version = "0.3.24", features = ["executor", "thread-pool"] }
+profiling = "*"
+specs = "0.18.0"
+log = "0.4.17"
+anyhow = "1.0"
+#
+bytemuck = "*"
+rayon = "*"
+
+
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk = { version = "^0.7.0", features = [] }
+ndk-glue = { version = "^0.7.0", features = ["logger"] }
+
+[package.metadata.android.sdk]
+min_sdk_version = 16
+target_sdk_version = 29
+
+[package.metadata.android.signing.release]
+
+keystore_password = "android"
