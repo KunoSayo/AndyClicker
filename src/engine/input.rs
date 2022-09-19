@@ -22,6 +22,8 @@ pub struct BakedInputs {
     pub cur_temp_game_input: RawInputData,
     /// only swap in states.game tick
     pub last_temp_game_input: RawInputData,
+
+    pub pressed_any_cur_frame: bool
 }
 
 
@@ -43,11 +45,14 @@ impl BakedInputs {
     }
     /// save current input to last
     /// make current temp input to current frame input
-    pub fn swap_frame(&mut self) {
+    pub (in crate::engine) fn swap_frame(&mut self) {
         //save current to last
         swap(&mut self.cur_frame_input, &mut self.last_frame_input);
         //clone for not lose temp info
         self.cur_frame_input = self.cur_temp_input.clone();
+
+        self.pressed_any_cur_frame = self.cur_frame_input.pressing.iter().any(|k| !self.last_frame_input.pressing.contains(k));
+
     }
 
     #[allow(unused)]

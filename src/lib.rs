@@ -6,11 +6,6 @@ mod engine;
 mod state;
 
 
-#[derive(Default)]
-struct ClickData {
-    clicks: u128,
-}
-
 pub fn real_main() {
     log::info!("Joined the real main");
     let event_loop = EventLoop::new();
