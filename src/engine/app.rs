@@ -39,7 +39,8 @@ impl WindowInstance {
             None
         };
         let rua = mlua::Lua::new();
-        let egui_ctx = Default::default();
+        let egui_ctx = Context::default();
+        egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
         Self {
             window,
             gpu,
