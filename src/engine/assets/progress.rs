@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
 
-
 #[derive(Default)]
 struct CounterInner {
     loading: AtomicU16,

@@ -3,14 +3,11 @@ use std::ops::Deref;
 use wgpu::*;
 use wgpu_glyph::ab_glyph::FontArc;
 
-
-
-pub mod progress;
-pub mod manager;
-
 pub use manager::*;
 pub use progress::*;
 
+pub mod progress;
+pub mod manager;
 
 pub type TexHandle = u32;
 

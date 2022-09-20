@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::default::Default;
+
 use egui::Context;
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_winit::State;
@@ -9,8 +10,8 @@ use wgpu::{Color, CommandEncoderDescriptor, Extent3d, ImageCopyTexture, LoadOp,
 use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
-use crate::engine::{BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, ResourcesHandles, Trans, WgpuData};
 
+use crate::engine::{BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, ResourcesHandles, Trans, WgpuData};
 
 pub struct WindowInstance {
     pub window: Window,
@@ -18,7 +19,7 @@ pub struct WindowInstance {
     pub render: Option<MainRendererData>,
     pub res: ResourcesHandles,
     pub last_render_time: std::time::Instant,
-    pub egui_ctx: egui::Context,
+    pub egui_ctx: Context,
     pub egui_state: State,
 
     pub inputs: BakedInputs,
@@ -131,13 +132,13 @@ impl Application {
             profiling::scope!("Render pth once");
             let render_now = std::time::Instant::now();
             let render_dur = render_now.duration_since(self.window.last_render_time);
-            let dt = render_dur.as_secs_f32();
+            let _dt = render_dur.as_secs_f32();
 
             let swap_chain_frame
                 = gpu.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
             let surface_output = &swap_chain_frame;
             {
-                let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
+                let mut encoder = gpu.device.create_command_encoder(&CommandEncoderDescriptor { label: Some("Clear Encoder") });
                 let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                     label: None,
                     color_attachments: &[Some(RenderPassColorAttachment {
@@ -178,7 +179,7 @@ impl Application {
             {
                 let device = gpu.device.as_ref();
                 let queue = gpu.queue.as_ref();
-                let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
                     label: Some("encoder for egui"),
                 });
 
@@ -320,6 +321,12 @@ impl Application {
                             }
                         }
                     }
+                }
+                Event::WindowEvent {
+                    event: WindowEvent::Touch(touch), ..
+                } => {
+                    // todo: touch plz.
+                    let _ = touch;
                 }
                 Event::RedrawRequested(_) => {
                     if !game_draw_requested {

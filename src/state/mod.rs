@@ -1,2 +1,4 @@
-mod click;
 pub use click::*;
+
+mod click;
+

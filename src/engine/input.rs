@@ -3,8 +3,6 @@ use std::mem::swap;
 
 use winit::event::VirtualKeyCode;
 
-
-
 #[derive(Debug, Default)]
 pub struct RawInputData {
     pub x: f32,
@@ -23,7 +21,7 @@ pub struct BakedInputs {
     /// only swap in states.game tick
     pub last_temp_game_input: RawInputData,
 
-    pub pressed_any_cur_frame: bool
+    pub pressed_any_cur_frame: usize,
 }
 
 
@@ -45,14 +43,15 @@ impl BakedInputs {
     }
     /// save current input to last
     /// make current temp input to current frame input
-    pub (in crate::engine) fn swap_frame(&mut self) {
+    pub(in crate::engine) fn swap_frame(&mut self) {
         //save current to last
         swap(&mut self.cur_frame_input, &mut self.last_frame_input);
         //clone for not lose temp info
         self.cur_frame_input = self.cur_temp_input.clone();
 
-        self.pressed_any_cur_frame = self.cur_frame_input.pressing.iter().any(|k| !self.last_frame_input.pressing.contains(k));
-
+        self.pressed_any_cur_frame = self.cur_frame_input.pressing.iter()
+            .filter(|k| !self.last_frame_input.pressing.contains(k))
+            .count();
     }
 
     #[allow(unused)]

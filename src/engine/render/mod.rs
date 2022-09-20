@@ -2,16 +2,14 @@ use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
+
 use anyhow::anyhow;
 use futures::executor::block_on;
-
 use wgpu::*;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 
-
 use crate::engine::{ResourcesHandles, TextureInfo, TextureWrapper};
-
 
 #[derive(Debug)]
 pub struct WgpuData {

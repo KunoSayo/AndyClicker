@@ -1,7 +1,8 @@
 use std::time::SystemTime;
-use egui::{Button, Context, Frame, Label, Pos2, Rect, Stroke, Vec2, WidgetText};
-use crate::engine::{GameState, LoopState, StateData, Trans};
 
+use egui::{Button, Context, Frame, Pos2, Rect, Vec2};
+
+use crate::engine::{GameState, LoopState, StateData, Trans};
 
 struct ClickData {
     max_cps: f64,
@@ -13,14 +14,14 @@ impl ClickData {
         let now = SystemTime::now();
         ClickData {
             max_cps: 0.0,
-            clicks: vec![now]
+            clicks: vec![now],
         }
     }
 }
 
 #[derive(Default)]
 pub struct MainState {
-    click: Option<ClickData>
+    click: Option<ClickData>,
 }
 
 impl MainState {
@@ -49,19 +50,23 @@ impl GameState for MainState {
                     max: ui.max_rect().max,
                 }, |ui| {
                     let mut bs = Vec2::new(ui.max_rect().width(), ui.max_rect().height() / 4.0);
-                    ui.set_min_size(bs);
                     ui.add_enabled_ui(self.click.is_some(), |ui| {
                         if ui.add_sized(bs, Button::new("Reset")).clicked() {
                             self.click = None;
                         }
                     });
                     bs.y *= 2.0;
-                    let mut clicked = false;
-                    if ui.add_sized(bs, Button::new("Click")).clicked() {
-                        clicked = true;
-                    }
-                    clicked |= s.window.inputs.pressed_any_cur_frame;
-                    if clicked {
+                    bs.x /= 4.0;
+                    let delta = bs.x;
+                    ui.horizontal(|ui| {
+                        for _ in 0..4 {
+                            if ui.add_sized(bs, Button::new("Click")).clicked() {
+                                self.click();
+                            }
+                        }
+                    });
+
+                    for _ in 0..s.window.inputs.pressed_any_cur_frame {
                         self.click();
                     }
 
@@ -77,10 +82,10 @@ impl GameState for MainState {
                         }
                         let max_bpm = 15.0 * click.max_cps;
                         ui.vertical_centered(|ui| {
+                            ui.label(format!("Clicks: {}", all));
                             ui.label(format!("CPS: {:.2} BPM: {:.2}", cps, bpm));
                             ui.label(format!("MAX: CPS: {:.2} BPM: {:.2}", click.max_cps, max_bpm));
                         });
-
                     }
                 });
             });

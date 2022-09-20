@@ -1,9 +1,11 @@
+pub use desktop::*;
 
 pub mod desktop {
     use std::collections::HashMap;
     use std::fmt::Formatter;
     use std::path::PathBuf;
     use std::sync::RwLock;
+
     use wgpu_glyph::ab_glyph::FontArc;
 
     pub struct ResourcesHandles {
@@ -48,4 +50,3 @@ pub mod desktop {
     }
 }
 
-pub use desktop::*;

@@ -1,6 +1,8 @@
 use std::time::Duration;
+
 use mlua::UserData;
 use winit::event_loop::ControlFlow;
+
 use crate::engine::app::WindowInstance;
 
 #[allow(unused)]

@@ -1,6 +1,7 @@
 use winit::event_loop::EventLoop;
 use winit::window::WindowBuilder;
-use crate::engine::app::{Application};
+
+use crate::engine::app::Application;
 
 mod engine;
 mod state;
@@ -16,7 +17,6 @@ pub fn real_main() {
     let main = Application::new(window, &event_loop);
     main.run_loop(event_loop, state::MainState::default());
 }
-
 
 
 #[cfg_attr(target_os = "android", ndk_glue::main(logger(level = "info", tag = "andy")))]
