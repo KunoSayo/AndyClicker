@@ -1,15 +1,31 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 
-use winit::event::VirtualKeyCode;
+use winit::dpi::PhysicalPosition;
+use winit::event::{Touch, TouchPhase, VirtualKeyCode};
 
-#[derive(Debug, Default)]
-pub struct RawInputData {
-    pub x: f32,
-    pub y: f32,
-    pub pressing: Box<HashSet<VirtualKeyCode>>,
+#[derive(Debug, Clone)]
+pub struct Pointer {
+    id: u64,
+    loc: PhysicalPosition<f64>,
+    phase: TouchPhase,
 }
 
+impl From<Touch> for Pointer {
+    fn from(touch: Touch) -> Self {
+        Self {
+            id: touch.id,
+            loc: touch.location,
+            phase: touch.phase,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RawInputData {
+    pub points: HashMap<usize, Pointer>,
+    pub pressing: HashSet<VirtualKeyCode>,
+}
 
 #[derive(Default)]
 pub struct BakedInputs {
@@ -20,7 +36,7 @@ pub struct BakedInputs {
     pub cur_temp_game_input: RawInputData,
     /// only swap in states.game tick
     pub last_temp_game_input: RawInputData,
-
+    pub points: HashMap<u64, Pointer>,
     pub pressed_any_cur_frame: usize,
 }
 
@@ -65,21 +81,5 @@ impl RawInputData {
     #[allow(unused)]
     pub fn empty() -> Self {
         Self::default()
-    }
-}
-
-impl Clone for RawInputData {
-    fn clone(&self) -> Self {
-        Self {
-            x: self.x,
-            y: self.y,
-            pressing: self.pressing.clone(),
-        }
-    }
-
-    fn clone_from(&mut self, source: &Self) {
-        self.x = source.x;
-        self.y = source.y;
-        self.pressing = source.pressing.clone();
     }
 }

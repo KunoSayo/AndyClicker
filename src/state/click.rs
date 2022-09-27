@@ -20,11 +20,11 @@ impl ClickData {
 }
 
 #[derive(Default)]
-pub struct MainState {
+pub struct ClickState {
     click: Option<ClickData>,
 }
 
-impl MainState {
+impl ClickState {
     fn click(&mut self) {
         let now = SystemTime::now();
         if let Some(click) = &mut self.click {
@@ -35,7 +35,7 @@ impl MainState {
     }
 }
 
-impl GameState for MainState {
+impl GameState for ClickState {
     fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
         (Trans::None, LoopState::POLL)
     }
@@ -55,14 +55,10 @@ impl GameState for MainState {
                             self.click = None;
                         }
                     });
-                    bs.y *= 2.0;
-                    bs.x /= 4.0;
                     let delta = bs.x;
                     ui.horizontal(|ui| {
-                        for _ in 0..4 {
-                            if ui.add_sized(bs, Button::new("Click")).clicked() {
-                                self.click();
-                            }
+                        if ui.add_sized(bs, Button::new("Click")).clicked() {
+                            self.click();
                         }
                     });
 

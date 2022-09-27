@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::default::Default;
 
-use egui::Context;
+use egui::{Context, FontData};
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_winit::State;
 use specs::{World, WorldExt};
@@ -11,7 +11,7 @@ use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
-use crate::engine::{BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, ResourcesHandles, Trans, WgpuData};
+use crate::engine::{BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, Pointer, ResourcesHandles, Trans, WgpuData};
 
 pub struct WindowInstance {
     pub window: Window,
@@ -326,8 +326,7 @@ impl Application {
                 Event::WindowEvent {
                     event: WindowEvent::Touch(touch), ..
                 } => {
-                    // todo: touch plz.
-                    let _ = touch;
+                    self.window.inputs.points.insert(touch.id, Pointer::from(touch));
                 }
                 Event::RedrawRequested(_) => {
                     if !game_draw_requested {
