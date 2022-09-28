@@ -65,7 +65,8 @@ pub struct Application {
 
 macro_rules! get_state {
         ($this: expr) => {crate::engine::state::StateData {
-            window: &mut $this.window
+            window: &mut $this.window,
+            dt: 0.0
         }};
     }
 
@@ -133,7 +134,7 @@ impl Application {
             profiling::scope!("Render pth once");
             let render_now = std::time::Instant::now();
             let render_dur = render_now.duration_since(self.window.last_render_time);
-            let _dt = render_dur.as_secs_f32();
+            let dt = render_dur.as_secs_f32();
 
             let swap_chain_frame
                 = gpu.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
@@ -164,6 +165,7 @@ impl Application {
             let full_output = egui_ctx.run(self.window.egui_state.take_egui_input(&self.window.window), |egui_ctx| {
                 {
                     let mut state_data = get_state!(self);
+                    state_data.dt = dt;
 
 
                     for game_state in &mut self.states {

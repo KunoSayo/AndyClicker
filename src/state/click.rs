@@ -1,6 +1,8 @@
+use std::fmt::format;
 use std::time::SystemTime;
 
-use egui::{Button, Context, Frame, Pos2, Rect, Vec2};
+use egui::{Button, Context, Event, Frame, Key, Pos2, Rect, Ui, Vec2};
+use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, Trans};
 
@@ -36,8 +38,8 @@ impl ClickState {
 }
 
 impl GameState for ClickState {
-    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
-        (Trans::None, LoopState::POLL)
+    fn update(&mut self, s: &mut StateData) -> (Trans, LoopState) {
+        (if s.window.inputs.cur_frame_input.pressing.contains(&VirtualKeyCode::Escape) { Trans::Pop } else { Trans::None }, LoopState::POLL)
     }
 
     fn render(&mut self, s: &mut StateData, ctx: &Context) -> Trans {
@@ -87,4 +89,24 @@ impl GameState for ClickState {
             });
         Trans::None
     }
+}
+
+fn get_key_press_times(ui: &Ui, k: Key, last: &mut bool) -> (usize) {
+    let mut ret = 0;
+    for x in &ui.input().events {
+        match x {
+            Event::Key { key, pressed, .. } if key == &k => {
+                if *pressed {
+                    if !*last {
+                        ret += 1;
+                        *last = true;
+                    }
+                } else {
+                    *last = false;
+                }
+            }
+            _ => {}
+        }
+    }
+    ret
 }

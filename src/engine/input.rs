@@ -4,6 +4,7 @@ use std::mem::swap;
 use winit::dpi::PhysicalPosition;
 use winit::event::{Touch, TouchPhase, VirtualKeyCode};
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct Pointer {
     id: u64,

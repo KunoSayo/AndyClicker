@@ -23,6 +23,7 @@ impl Default for Trans {
 
 pub struct StateData<'a> {
     pub window: &'a mut WindowInstance,
+    pub dt: f32,
 }
 
 
