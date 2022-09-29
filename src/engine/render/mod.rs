@@ -11,6 +11,9 @@ use winit::window::Window;
 
 use crate::engine::{ResourcesHandles, TextureInfo, TextureWrapper};
 
+pub mod invert_color;
+
+
 #[derive(Debug)]
 pub struct WgpuData {
     pub surface: Surface,

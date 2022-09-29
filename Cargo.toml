@@ -28,6 +28,9 @@ specs = "0.18.0"
 log = "0.4.17"
 anyhow = "1.0"
 image = "0.24.4"
+
+alto = "3.0.4"
+minimp3 = "0.5.1"
 #
 bytemuck = "*"
 rayon = "*"

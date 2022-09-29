@@ -1,13 +1,20 @@
-use egui::{Button, Color32, Context, Frame, Image, ImageData, Key, Pos2, Rect, Slider, SliderOrientation, Vec2};
+use std::io::{BufReader, Cursor};
+use std::sync::Arc;
+use std::time::Duration;
+
+use alto::Source;
+use egui::{Button, Color32, Context, Frame, Image, Key, Pos2, Rect, Slider, SliderOrientation, Vec2};
 use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, Trans};
+use crate::engine::invert_color::InvertColorRenderer;
 
 pub struct MainMenu {
     win_target: f32,
     bg: Option<egui::TextureHandle>,
     left_color: [f32; 3],
     right_color: [f32; 3],
+    gain: f32,
 }
 
 impl Default for MainMenu {
@@ -15,8 +22,9 @@ impl Default for MainMenu {
         Self {
             win_target: 100.0,
             bg: None,
-            left_color: [0.0, 0.0, 0.75],
+            left_color: [212.0 / 255.0, 205.0 / 255.0, 241.0 / 255.0],
             right_color: [0.75, 0.0, 0.0],
+            gain: 1.0,
         }
     }
 }
@@ -24,6 +32,45 @@ impl Default for MainMenu {
 impl MainMenu {}
 
 impl GameState for MainMenu {
+    fn start(&mut self, s: &mut StateData) {
+        if let Some(gpu) = &s.window.gpu {
+            s.window.world.insert(InvertColorRenderer::new(gpu));
+        }
+        if let Some(al) = &mut s.window.al {
+            self.gain = al.bgm_source.gain();
+            let music_data = include_bytes!("../../sign/th08_18.mp3");
+            let (audio_bin, freq, channel) = {
+                let mut decoder = minimp3::Decoder::new(&music_data[..]);
+                let mut fst = match decoder.next_frame() {
+                    Ok(f) => f,
+                    Err(e) => {
+                        log::error!("Decode mp3 file failed for {:?}", e);
+                        panic!("Decoder mp3 file first audio frame failed for {:?}", e);
+                    }
+                };
+                let freq = fst.sample_rate;
+                let channel = fst.channels;
+                let mut audio_bin = Vec::with_capacity(8 * 1024 * 1024);
+                audio_bin.append(&mut fst.data);
+                while let Ok(mut frame) = decoder.next_frame() {
+                    debug_assert!(frame.channels == channel);
+                    debug_assert!(frame.sample_rate == freq);
+                    audio_bin.append(&mut frame.data);
+                }
+                audio_bin.resize(audio_bin.len(), 0);
+                (audio_bin, freq, channel)
+            };
+            log::info!("Loaded bgm and it has {} channels", channel);
+
+            let buf = if channel == 1 {
+                Arc::new(al.ctx.new_buffer::<alto::Mono<i16>, _>(&audio_bin, freq).unwrap())
+            } else {
+                Arc::new(al.ctx.new_buffer::<alto::Stereo<i16>, _>(&audio_bin, freq).unwrap())
+            };
+            al.play_bgm(buf);
+        }
+    }
+
     fn update(&mut self, s: &mut StateData) -> (Trans, LoopState) {
         if s.window.inputs.is_pressed(&[VirtualKeyCode::S]) {
             s.window.inputs.pressed_any_cur_frame = 0;
@@ -34,7 +81,7 @@ impl GameState for MainMenu {
     }
 
 
-    fn render(&mut self, w: &mut StateData, ctx: &Context) -> Trans {
+    fn render(&mut self, s: &mut StateData, ctx: &Context) -> Trans {
         let mut ret = Trans::None;
         egui::CentralPanel::default()
             .frame(Frame::none())
@@ -52,7 +99,12 @@ impl GameState for MainMenu {
                         if ui.add_sized(size, Button::new("Start")).clicked() {
                             started = true;
                         }
-                        if w.window.inputs.is_pressed(&[VirtualKeyCode::Return]) {
+                        ui.heading("BGM Vol:");
+                        if let Some(al) = &mut s.window.al {
+                            ui.add(Slider::new(&mut self.gain, al.bgm_source.min_gain()..=al.bgm_source.max_gain()));
+                            al.bgm_source.set_gain(self.gain).unwrap();
+                        }
+                        if s.window.inputs.is_pressed(&[VirtualKeyCode::Return]) {
                             started = true;
                         }
 

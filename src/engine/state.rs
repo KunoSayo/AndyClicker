@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use mlua::UserData;
+use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
 use crate::engine::app::WindowInstance;
@@ -13,6 +14,12 @@ pub enum Trans {
     Switch(Box<dyn GameState>),
     Exit,
     Vec(Vec<Trans>),
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum StateEvent<'a> {
+    PostUiRender,
+    Window(&'a WindowEvent<'a>),
 }
 
 impl Default for Trans {
@@ -39,6 +46,8 @@ pub trait GameState: 'static {
     fn shadow_render(&mut self, _: &StateData, _: &egui::Context) {}
 
     fn stop(&mut self, _: &mut StateData) {}
+
+    fn on_event(&mut self, _: Option<&mut StateData>, _: StateEvent) {}
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]

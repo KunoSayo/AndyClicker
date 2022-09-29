@@ -4,6 +4,7 @@ use std::default::Default;
 use egui::{Context, FontData};
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_winit::State;
+use log::warn;
 use specs::{World, WorldExt};
 use wgpu::{Color, CommandEncoderDescriptor, Extent3d, ImageCopyTexture, LoadOp,
            Operations, Origin3d, RenderPassColorAttachment, RenderPassDescriptor, TextureAspect};
@@ -11,7 +12,7 @@ use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
-use crate::engine::{BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, Pointer, ResourcesHandles, Trans, WgpuData};
+use crate::engine::{BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, OpenalData, Pointer, ResourcesHandles, StateEvent, Trans, WgpuData};
 
 pub struct WindowInstance {
     pub window: Window,
@@ -26,6 +27,7 @@ pub struct WindowInstance {
     pub lua: mlua::Lua,
     pub world: World,
 
+    pub al: Option<OpenalData>,
 }
 
 impl WindowInstance {
@@ -41,6 +43,13 @@ impl WindowInstance {
         let rua = mlua::Lua::new();
         let egui_ctx = Context::default();
         egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
+        let al = match OpenalData::new() {
+            Ok(al) => Some(al),
+            Err(e) => {
+                warn!("OpenAL load failed for {:?}", e);
+                None
+            }
+        };
         Self {
             window,
             gpu,
@@ -52,6 +61,7 @@ impl WindowInstance {
             inputs: Default::default(),
             lua: rua,
             world: World::new(),
+            al,
         }
     }
 }
@@ -179,6 +189,7 @@ impl Application {
             });
             let gpu = self.window.gpu.as_ref().unwrap();
             let render = self.window.render.as_mut().unwrap();
+            // render ui output to main screen
             {
                 let device = gpu.device.as_ref();
                 let queue = gpu.queue.as_ref();
@@ -209,11 +220,16 @@ impl Application {
                 );
                 // Submit the commands.
                 queue.submit(std::iter::once(encoder.finish()));
-
-                for id in &full_output.textures_delta.free {
-                    egui_rpass.free_texture(id);
-                }
+                full_output.textures_delta.free.iter().for_each(|id| egui_rpass.free_texture(id));
             }
+            {
+                let mut sd = get_state!(self);
+                sd.dt = dt;
+                self.states.iter_mut().for_each(|s| s.on_event(Some(&mut sd), StateEvent::PostUiRender));
+            }
+            let gpu = self.window.gpu.as_ref().unwrap();
+            let render = self.window.render.as_mut().unwrap();
+
             {
                 let mut encoder = gpu.device.create_command_encoder(&CommandEncoderDescriptor {
                     label: Some("Copy buffer to screen commands")
@@ -258,6 +274,9 @@ impl Application {
         event_loop.run(move |event, _, control_flow| {
             if let Event::WindowEvent { event, .. } = &event {
                 self.window.egui_state.on_event(&self.window.egui_ctx, event);
+                for x in &mut self.states {
+                    x.on_event(None, StateEvent::Window(event));
+                }
             }
             match event {
                 Event::NewEvents(_) => {

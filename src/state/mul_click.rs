@@ -1,19 +1,35 @@
 use std::collections::VecDeque;
 use std::default::Default;
-use std::fmt::format;
 use std::time::SystemTime;
 
-use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, Ui, Vec2};
+use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, Ui};
 use egui::TextureFilter::Nearest;
-use winit::event::VirtualKeyCode;
+use log::debug;
+use specs::WorldExt;
+use winit::event::{ElementState, VirtualKeyCode, WindowEvent};
 
-use crate::engine::{GameState, LoopState, StateData, Trans};
+use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
+use crate::engine::invert_color::{InvertColorCircle, InvertColorRenderer};
 
 #[derive(Default)]
 struct ClickData {
-    clicks: VecDeque<SystemTime>,
+    last_click: Option<SystemTime>,
 }
 
+impl ClickData {
+    /// Click for now and get the value for click
+    /// the value is calculated by 1.0 / dur_s
+    pub(crate) fn click(&mut self, now: SystemTime) -> f32 {
+        if let Some(last) = &mut self.last_click {
+            let dur = now.duration_since(*last).unwrap();
+            *last = now;
+            1.0 / dur.as_secs_f32()
+        } else {
+            self.last_click.replace(now);
+            0.0
+        }
+    }
+}
 
 pub struct MulClickState {
     start_time: Option<SystemTime>,
@@ -24,34 +40,16 @@ pub struct MulClickState {
     left: TextureHandle,
     right: TextureHandle,
     last_time: Option<SystemTime>,
+    end_time: Option<SystemTime>,
     /// positive to right
     cur_progress: f32,
     /// positive to right
     a: f32,
     win_target: f32,
+    effects: Vec<InvertColorCircle>,
 }
 
-
 impl MulClickState {
-    /// click and get cps
-    fn click(click: &mut ClickData) {
-        let now = SystemTime::now();
-        click.clicks.push_back(now);
-    }
-
-    fn get_cps(left: &SystemTime, now: &SystemTime, click: &mut ClickData) -> f32 {
-        while let Some(front) = click.clicks.front() {
-            if left.duration_since(*front).is_ok() {
-                click.clicks.pop_front();
-            } else {
-                break;
-            }
-        }
-        let sec = now.duration_since(*left).unwrap().as_secs_f32();
-        click.clicks.len() as f32 / sec
-    }
-
-
     pub(crate) fn new(win_target: f32, ui: &Ui, left_color: [f32; 3], right_color: [f32; 3]) -> Self {
         let to = |x| (x * 255.0) as u8;
         let left = ui.ctx().load_texture("left-color",
@@ -77,6 +75,41 @@ impl MulClickState {
             cur_progress: 0.0,
             last_time: None,
             a: 0.0,
+            end_time: None,
+            effects: vec![],
+        }
+    }
+
+    fn on_event(&mut self, event: &Event, now: SystemTime) {
+        if let Event::Key { key, pressed, .. } = event {
+            let pressed = *pressed;
+            match *key {
+                Key::A => {
+                    if self.pressing_a {
+                        if !pressed {
+                            self.pressing_a = false;
+                        }
+                    } else {
+                        if pressed {
+                            self.pressing_a = true;
+                            self.a += self.left_click.click(now);
+                        }
+                    }
+                }
+                Key::Num6 => {
+                    if self.pressing_6 {
+                        if !pressed {
+                            self.pressing_6 = false;
+                        }
+                    } else {
+                        if pressed {
+                            self.pressing_6 = true;
+                            self.a -= self.right_click.click(now);
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
     }
 }
@@ -96,41 +129,45 @@ impl GameState for MulClickState {
             .show(ctx, |ui| {
                 let now = SystemTime::now();
                 let sec = now.duration_since(self.start_time.unwrap()).unwrap().as_secs_f64();
-                let a_times = get_key_press_times(ui, Key::A, &mut self.pressing_a);
-                let six_times = get_key_press_times(ui, Key::Num6, &mut self.pressing_6);
                 let max_rect = ui.max_rect();
                 if sec > 3.0 {
                     if self.last_time.is_none() {
                         self.last_time.replace(now);
                     }
-                    for _ in 0..a_times {
-                        Self::click(&mut self.left_click);
-                    }
-                    for _ in 0..six_times {
-                        Self::click(&mut self.right_click);
-                    }
-                    if let Ok(dur) = now.duration_since(self.last_time.unwrap()) {
-                        let dur = dur.as_secs_f32();
-                        if dur >= 0.25 {
-                            let left_cps = Self::get_cps(self.last_time.as_ref().unwrap(), &now, &mut self.left_click);
-                            let right_cps = Self::get_cps(self.last_time.as_ref().unwrap(), &now, &mut self.right_click);
-                            self.a += left_cps - right_cps;
-                            self.last_time.replace(now);
+                    if self.cur_progress.abs() < self.win_target {
+                        let now = SystemTime::now();
+                        for x in &s.window.egui_ctx.input().events {
+                            self.on_event(x, now);
                         }
-                        self.cur_progress += s.dt * self.a;
-                        let y = ui.max_rect().max.y;
-                        let mid = (ui.max_rect().max.x / 2.0) * (1.0 + self.cur_progress / self.win_target);
-                        let mut right_bottom = Pos2::new(mid, y);
-                        let tint = Color32::from_rgba_premultiplied(255, 255, 255, 128);
-                        ui.allocate_ui_at_rect(Rect { min: Default::default(), max: right_bottom }, |ui| {
-                            ui.add(Image::new(self.left.id(), [mid, y]).tint(tint));
-                        });
-                        let mid_left = Pos2::new(mid, 0.0);
-                        right_bottom.x = ui.max_rect().max.x;
-                        ui.allocate_ui_at_rect(Rect { min: mid_left, max: right_bottom }, |ui| {
-                            ui.add(Image::new(self.right.id(), [max_rect.max.x - mid, y]).tint(tint));
-                        });
+                    } else {
+                        if self.end_time.is_none() {
+                            self.end_time = Some(now);
+                            self.effects.push(InvertColorCircle {
+                                center: [if self.cur_progress > 0.0 { max_rect.max.x } else { 0.0 }, max_rect.height() / 2.0],
+                                radius: 0.0,
+                            })
+                        }
+                        for x in &mut self.effects {
+                            x.radius += s.dt * 300.0;
+                        }
                     }
+                    self.cur_progress += s.dt * self.a;
+                    let y = ui.max_rect().max.y - 48.0;
+
+                    let mid = (ui.max_rect().max.x / 2.0) * (1.0 + self.cur_progress / self.win_target);
+                    let mut right_bottom = Pos2::new(mid, y);
+                    let tint = Color32::from_rgba_premultiplied(255, 255, 255, 128);
+                    ui.allocate_ui_at_rect(Rect { min: Default::default(), max: right_bottom }, |ui| {
+                        ui.add(Image::new(self.left.id(), [mid, y]).tint(tint));
+                    });
+                    let mid_left = Pos2::new(mid, 0.0);
+                    right_bottom.x = ui.max_rect().max.x;
+                    ui.allocate_ui_at_rect(Rect { min: mid_left, max: right_bottom }, |ui| {
+                        ui.add(Image::new(self.right.id(), [max_rect.max.x - mid, y]).tint(tint));
+                    });
+                    ui.centered_and_justified(|ui| {
+                        ui.heading(format!("{:03.2} ({:.2})", self.cur_progress, self.a));
+                    });
                 }
                 if sec <= 4.0 {
                     let mut r = 255;
@@ -150,31 +187,21 @@ impl GameState for MulClickState {
                                 };
                                 format!("Go")
                             };
-                            ui.add(Label::new(RichText::new(text).color(Color32::from_rgba_premultiplied(255, 0, 9, r)).heading()));
+                            ui.add(Label::new(RichText::new(text).color(Color32::from_rgba_premultiplied(255, 255, 255, r)).heading()));
                         });
                     });
                 }
             });
         Trans::None
     }
-}
 
-fn get_key_press_times(ui: &Ui, k: Key, last: &mut bool) -> (usize) {
-    let mut ret = 0;
-    for x in &ui.input().events {
-        match x {
-            Event::Key { key, pressed, .. } if key == &k => {
-                if *pressed {
-                    if !*last {
-                        ret += 1;
-                        *last = true;
-                    }
-                } else {
-                    *last = false;
-                }
+    fn on_event(&mut self, s: Option<&mut StateData>, e: StateEvent) {
+        if matches!(e, StateEvent::PostUiRender) {
+            let s = s.unwrap();
+            if let Some(render) = &s.window.render {
+                let renderer = s.window.world.read_resource::<InvertColorRenderer>();
+                renderer.render(s.window, &render.views.get_screen().view, &self.effects[..]);
             }
-            _ => {}
         }
     }
-    ret
 }
