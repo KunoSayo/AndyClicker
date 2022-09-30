@@ -3,8 +3,7 @@ fn android_sth() {
 }
 
 fn main() {
-    #[cfg(target_os = "android")]
-    {
+    if std::env::var("CARGO_CFG_TARGET_OS").unwrap_or("".to_string()) == "android" {
         android_sth();
     }
 }

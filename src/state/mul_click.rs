@@ -235,8 +235,9 @@ impl GameState for MulClickState {
         if matches!(e, StateEvent::PostUiRender) {
             let s = s.unwrap();
             if let Some(render) = &s.window.render {
-                let renderer = s.window.world.read_resource::<InvertColorRenderer>();
-                renderer.render(s.window, &render.views.get_screen().view, &self.effects[..]);
+                if let Some(renderer) = s.window.world.try_fetch::<InvertColorRenderer>() {
+                    renderer.render(s.window, &render.views.get_screen().view, &self.effects[..]);
+                }
             }
         }
     }

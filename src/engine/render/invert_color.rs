@@ -1,6 +1,6 @@
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use wgpu::{BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl, IndexFormat, LoadOp, Operations, PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl, IndexFormat, LoadOp, Operations, PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 
 use crate::engine::app::WindowInstance;
 use crate::engine::WgpuData;
