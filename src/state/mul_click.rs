@@ -1,12 +1,10 @@
-use std::collections::VecDeque;
 use std::default::Default;
 use std::time::SystemTime;
 
 use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, Ui};
 use egui::TextureFilter::Nearest;
-use log::debug;
 use specs::WorldExt;
-use winit::event::{ElementState, VirtualKeyCode, WindowEvent};
+use winit::event::{VirtualKeyCode, WindowEvent};
 
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
 use crate::engine::invert_color::{InvertColorCircle, InvertColorRenderer};
@@ -140,15 +138,45 @@ impl GameState for MulClickState {
                             self.on_event(x, now);
                         }
                     } else {
-                        if self.end_time.is_none() {
+                        if let Some(end_time) = self.end_time {
+                            let dur = now.duration_since(end_time).unwrap().as_secs_f32();
+                            self.effects[0].radius += s.dt * 300.0;
+                            if dur > 0.25 {
+                                for i in 1..5 {
+                                    self.effects[i].radius += (dur - 0.25).min(s.dt) * 375.0;
+                                }
+                            }
+                            if dur > 1.0 {
+                                self.effects[5].radius += (dur - 1.0).min(s.dt) * 450.0;
+                                for x in self.effects.iter_mut() {
+                                    x.radius += s.dt * (dur - 1.0).powf(4.0) * 100.0;
+                                }
+                            }
+                        } else {
                             self.end_time = Some(now);
+                            let center = [if self.cur_progress > 0.0 { max_rect.max.x - 100.0 } else { 100.0 }, max_rect.height() / 2.0];
                             self.effects.push(InvertColorCircle {
-                                center: [if self.cur_progress > 0.0 { max_rect.max.x } else { 0.0 }, max_rect.height() / 2.0],
+                                center,
                                 radius: 0.0,
-                            })
-                        }
-                        for x in &mut self.effects {
-                            x.radius += s.dt * 300.0;
+                            });
+                            (0..4).map(|x| {
+                                match x {
+                                    0 => (-50.0, 50.0),
+                                    1 => (50.0, 50.0),
+                                    2 => (-50.0, -50.0),
+                                    3 => (50.0, -50.0),
+                                    _ => unreachable!()
+                                }
+                            }).for_each(|offset| {
+                                self.effects.push(InvertColorCircle {
+                                    center: [center[0] + offset.0, center[1] + offset.1],
+                                    radius: 0.0,
+                                });
+                            });
+                            self.effects.push(InvertColorCircle {
+                                center,
+                                radius: 0.0,
+                            });
                         }
                     }
                     self.cur_progress += s.dt * self.a;
@@ -169,10 +197,11 @@ impl GameState for MulClickState {
                         ui.heading(format!("{:03.2} ({:.2})", self.cur_progress, self.a));
                     });
                 }
-                if sec <= 4.0 {
-                    let mut r = 255;
-                    ui.allocate_ui_at_rect(max_rect, |ui| {
-                        ui.centered_and_justified(|ui| {
+
+                ui.allocate_ui_at_rect(max_rect, |ui| {
+                    ui.centered_and_justified(|ui| {
+                        if sec <= 4.0 {
+                            let mut r = 255;
                             let text = if sec <= 1.0 {
                                 format!("Ready {:.02}", 3.0 - sec)
                             } else if sec <= 2.0 {
@@ -188,9 +217,16 @@ impl GameState for MulClickState {
                                 format!("Go")
                             };
                             ui.add(Label::new(RichText::new(text).color(Color32::from_rgba_premultiplied(255, 255, 255, r)).heading()));
-                        });
+                        }
+                        if self.end_time.is_some() {
+                            if self.cur_progress > 0.0 {
+                                ui.add(Label::new(RichText::new("Left Won!").heading()));
+                            } else {
+                                ui.add(Label::new(RichText::new("Right Won!").heading()));
+                            }
+                        }
                     });
-                }
+                });
             });
         Trans::None
     }

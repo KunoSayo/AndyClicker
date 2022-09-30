@@ -4,10 +4,11 @@ use std::time::Duration;
 
 use alto::Source;
 use egui::{Button, Color32, Context, Frame, Image, Key, Pos2, Rect, Slider, SliderOrientation, Vec2};
+use specs::WorldExt;
 use winit::event::VirtualKeyCode;
 
-use crate::engine::{GameState, LoopState, StateData, Trans};
-use crate::engine::invert_color::InvertColorRenderer;
+use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
+use crate::engine::invert_color::{InvertColorCircle, InvertColorRenderer};
 
 pub struct MainMenu {
     win_target: f32,

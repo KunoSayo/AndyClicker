@@ -1,16 +1,9 @@
-use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::convert::TryInto;
-
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use rayon::prelude::*;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl, IndexFormat, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::{BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl, IndexFormat, LoadOp, Operations, PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 
-use crate::engine::{TexHandle, WgpuData};
 use crate::engine::app::WindowInstance;
+use crate::engine::WgpuData;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Pod, Zeroable)]
 #[repr(C, align(4))]
@@ -36,7 +29,6 @@ pub struct InvertColorRenderer {
 impl InvertColorRenderer {
     pub fn new(state: &WgpuData) -> Self {
         let texture_format = state.surface_cfg.format;
-        let obj_count_in_buffer = 16;
         let device = &state.device;
         //done bind group
 
@@ -94,7 +86,10 @@ impl InvertColorRenderer {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            primitive: Default::default(),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleStrip,
+                ..std::default::Default::default()
+            },
             depth_stencil: None,
             multisample: Default::default(),
             multiview: None,
@@ -111,22 +106,15 @@ impl InvertColorRenderer {
         profiling::scope!("Render 2d");
 
         profiling::scope!("Invert Color new encoder");
-        let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Invert Color Encoder") });
+        let rp_attach = [Some(RenderPassColorAttachment {
+            view: render_target,
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Load,
+                store: true,
+            },
+        })];
         {
-            let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("ic rp"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: render_target,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-            rp.set_pipeline(&self.render_pipeline);
-            rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             let mut data = Vec::new();
             data.resize((VERTEX_DATA_SIZE * 16) * 4, 0u8);
             let to_normal = |obj: &InvertColorCircle, i| {
@@ -152,18 +140,29 @@ impl InvertColorRenderer {
             for x in circles.chunks(16) {
                 for (idx, x) in x.iter().enumerate() {
                     for i in 0..4 {
-                        data[idx * 4 + i..idx * 4 + i + 8].copy_from_slice(bytemuck::cast_slice(&to_normal(x, i)));
+                        let pos = to_normal(x, i);
+                        let offset = idx * 8 * 4 + i * 8;
+                        let range = offset..offset + 8;
+                        data[range].copy_from_slice(bytemuck::cast_slice(&pos[..]));
                     }
                 }
-                gpu.queue.write_buffer(&self.vertex_buffer, 0, &data);
+                gpu.queue.write_buffer(&self.vertex_buffer, 0, &data[..]);
                 gpu.queue.submit(None);
+                let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Invert Color Encoder") });
+                let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
+                    label: Some("ic rp"),
+                    color_attachments: &rp_attach,
+                    depth_stencil_attachment: None,
+                });
+                rp.set_pipeline(&self.render_pipeline);
+                rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 for i in 0..x.len() {
                     let i = i as u32;
-                    rp.draw(0 + i * 4..3 + i * 4, 0..1);
-                    rp.draw(1 + i * 4..4 + i * 4, 0..1);
+                    rp.draw(i * 4..4 + i * 4, 0..1);
                 }
+                drop(rp);
+                gpu.queue.submit(Some(encoder.finish()));
             }
         }
-        gpu.queue.submit(Some(encoder.finish()));
     }
 }

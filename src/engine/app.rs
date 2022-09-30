@@ -147,7 +147,7 @@ impl Application {
             let dt = render_dur.as_secs_f32();
 
             let swap_chain_frame
-                = gpu.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
+                = if let Ok(s) = gpu.surface.get_current_texture() { s } else { return; };
             let surface_output = &swap_chain_frame;
             {
                 let mut encoder = gpu.device.create_command_encoder(&CommandEncoderDescriptor { label: Some("Clear Encoder") });
