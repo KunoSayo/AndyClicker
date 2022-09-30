@@ -1,10 +1,10 @@
-use std::io::{BufReader, Cursor};
-use std::sync::Arc;
+use std::io::Cursor;
 use std::time::Duration;
 
-use alto::Source;
 use egui::{Button, Color32, Context, Frame, Image, Key, Pos2, Rect, Slider, SliderOrientation, Vec2};
-use specs::WorldExt;
+use kira::{LoopBehavior, Volume};
+use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
+use kira::tween::{Easing, Tween};
 use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
@@ -15,7 +15,8 @@ pub struct MainMenu {
     bg: Option<egui::TextureHandle>,
     left_color: [f32; 3],
     right_color: [f32; 3],
-    gain: f32,
+    vol: f32,
+    handle: Option<StaticSoundHandle>,
 }
 
 impl Default for MainMenu {
@@ -25,7 +26,8 @@ impl Default for MainMenu {
             bg: None,
             left_color: [212.0 / 255.0, 205.0 / 255.0, 241.0 / 255.0],
             right_color: [0.75, 0.0, 0.0],
-            gain: 1.0,
+            vol: 0.5,
+            handle: None,
         }
     }
 }
@@ -37,38 +39,14 @@ impl GameState for MainMenu {
         if let Some(gpu) = &s.window.gpu {
             s.window.world.insert(InvertColorRenderer::new(gpu));
         }
-        if let Some(al) = &mut s.window.al {
-            self.gain = al.bgm_source.gain();
+        if let Some(al) = &mut s.window.audio {
             let music_data = include_bytes!("../../sign/th08_18.mp3");
-            let (audio_bin, freq, channel) = {
-                let mut decoder = minimp3::Decoder::new(&music_data[..]);
-                let mut fst = match decoder.next_frame() {
-                    Ok(f) => f,
-                    Err(e) => {
-                        log::error!("Decode mp3 file failed for {:?}", e);
-                        panic!("Decoder mp3 file first audio frame failed for {:?}", e);
-                    }
-                };
-                let freq = fst.sample_rate;
-                let channel = fst.channels;
-                let mut audio_bin = Vec::with_capacity(8 * 1024 * 1024);
-                audio_bin.append(&mut fst.data);
-                while let Ok(mut frame) = decoder.next_frame() {
-                    debug_assert!(frame.channels == channel);
-                    debug_assert!(frame.sample_rate == freq);
-                    audio_bin.append(&mut frame.data);
-                }
-                audio_bin.resize(audio_bin.len(), 0);
-                (audio_bin, freq, channel)
-            };
-            log::info!("Loaded bgm and it has {} channels", channel);
-
-            let buf = if channel == 1 {
-                Arc::new(al.ctx.new_buffer::<alto::Mono<i16>, _>(&audio_bin, freq).unwrap())
-            } else {
-                Arc::new(al.ctx.new_buffer::<alto::Stereo<i16>, _>(&audio_bin, freq).unwrap())
-            };
-            al.play_bgm(buf);
+            let mut s = StaticSoundSettings::default();
+            s.loop_behavior = Some(LoopBehavior { start_position: 0.0 });
+            let handle = al.manager.play(StaticSoundData::from_cursor(Cursor::new(music_data),
+                                                                      s).unwrap())
+                .expect("Play bgm failed");
+            self.handle = Some(handle);
         }
     }
 
@@ -101,9 +79,15 @@ impl GameState for MainMenu {
                             started = true;
                         }
                         ui.heading("BGM Vol:");
-                        if let Some(al) = &mut s.window.al {
-                            ui.add(Slider::new(&mut self.gain, al.bgm_source.min_gain()..=al.bgm_source.max_gain()));
-                            al.bgm_source.set_gain(self.gain).unwrap();
+                        if let Some(h) = &mut self.handle {
+                            if ui.add(Slider::new(&mut self.vol, 0.0..=1.0)).changed() {
+                                println!("Changed");
+                                h.set_volume(Volume::Amplitude(self.vol as _), Tween {
+                                    start_time: Default::default(),
+                                    duration: Duration::from_secs(0),
+                                    easing: Easing::Linear,
+                                }).unwrap();
+                            }
                         }
                         if s.window.inputs.is_pressed(&[VirtualKeyCode::Return]) {
                             started = true;

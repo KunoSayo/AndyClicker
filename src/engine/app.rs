@@ -12,7 +12,7 @@ use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
-use crate::engine::{BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, OpenalData, Pointer, ResourcesHandles, StateEvent, Trans, WgpuData};
+use crate::engine::{AudioData, BakedInputs, GameState, LoopState, MainRendererData, MainRenderViews, Pointer, ResourcesHandles, StateEvent, Trans, WgpuData};
 
 pub struct WindowInstance {
     pub window: Window,
@@ -27,7 +27,7 @@ pub struct WindowInstance {
     pub lua: mlua::Lua,
     pub world: World,
 
-    pub al: Option<OpenalData>,
+    pub audio: Option<AudioData>,
 }
 
 impl WindowInstance {
@@ -43,7 +43,7 @@ impl WindowInstance {
         let rua = mlua::Lua::new();
         let egui_ctx = Context::default();
         egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
-        let al = match OpenalData::new() {
+        let al = match AudioData::new() {
             Ok(al) => Some(al),
             Err(e) => {
                 warn!("OpenAL load failed for {:?}", e);
@@ -61,7 +61,7 @@ impl WindowInstance {
             inputs: Default::default(),
             lua: rua,
             world: World::new(),
-            al,
+            audio: al,
         }
     }
 }
