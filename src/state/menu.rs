@@ -44,7 +44,7 @@ impl GameState for MainMenu {
             let mut s = StaticSoundSettings::default();
             s.loop_behavior = Some(LoopBehavior { start_position: 0.0 });
             let handle = al.manager.play(StaticSoundData::from_cursor(Cursor::new(music_data),
-                                                                      s).unwrap())
+                                                                      s).expect("Read sound data failed"))
                 .expect("Play bgm failed");
             self.handle = Some(handle);
         }

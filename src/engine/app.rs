@@ -4,7 +4,7 @@ use std::default::Default;
 use egui::{Context, FontData};
 use egui_wgpu::renderer::ScreenDescriptor;
 use egui_winit::State;
-use log::warn;
+use log::{info, warn};
 use specs::{World, WorldExt};
 use wgpu::{Color, CommandEncoderDescriptor, Extent3d, ImageCopyTexture, LoadOp,
            Operations, Origin3d, RenderPassColorAttachment, RenderPassDescriptor, TextureAspect};
@@ -33,7 +33,6 @@ pub struct WindowInstance {
 impl WindowInstance {
     pub fn new(window: Window, event_loop: &EventLoop<()>) -> Self {
         let gpu = WgpuData::new(&window).ok();
-
         let res = ResourcesHandles::default();
         let render = if let Some(gpu) = &gpu {
             Some(MainRendererData::new(gpu, &res))
@@ -41,15 +40,30 @@ impl WindowInstance {
             None
         };
         let rua = mlua::Lua::new();
+        info!("Got the lua");
         let egui_ctx = Context::default();
-        egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
-        let al = match AudioData::new() {
-            Ok(al) => Some(al),
+        info!("Got the egui context");
+        if gpu.is_some() {
+            egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
+            info!("Set the egui context scale factor");
+        }
+        let al = match std::panic::catch_unwind(|| {
+            match AudioData::new() {
+                Ok(al) => Some(al),
+                Err(e) => {
+                    warn!("Load audio failed for {:?}", e);
+                    None
+                }
+            }
+        }) {
+            Ok(al) => al,
             Err(e) => {
-                warn!("OpenAL load failed for {:?}", e);
+                warn!("Get audio even panicked for {:?} with type id {:?}", e, e.type_id());
                 None
             }
         };
+
+        info!("Almost got all window instance field");
         Self {
             window,
             gpu,
@@ -266,12 +280,14 @@ impl Application {
 
     pub fn run_loop(mut self, event_loop: EventLoop<()>, mut start: impl GameState) {
         start.start(&mut get_state!(&mut self));
+        info!("Started the start state.");
         self.states.push(Box::new(start));
         let mut game_draw_requested = false;
         let mut pressed_keys = HashSet::new();
         let mut released_keys = HashSet::new();
 
         event_loop.run(move |event, _, control_flow| {
+            println!("Get event: {:?}", event);
             if let Event::WindowEvent { event, .. } = &event {
                 self.window.egui_state.on_event(&self.window.egui_ctx, event);
                 for x in &mut self.states {

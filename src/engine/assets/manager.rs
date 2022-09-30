@@ -1,3 +1,6 @@
+#[cfg(target_os = "android")]
+pub use android::*;
+#[cfg(not(target_os = "android"))]
 pub use desktop::*;
 
 pub mod desktop {
@@ -28,7 +31,7 @@ pub mod desktop {
 
     impl Default for ResourcesHandles {
         fn default() -> Self {
-            let app_root = std::env::current_dir().unwrap();
+            let app_root = std::env::current_dir().expect("Get current dir failed");
             let res_root = if app_root.join("res").exists() { app_root.join("res") } else { app_root };
             let assets_dir = res_root.join("assets");
             Self {
@@ -46,6 +49,17 @@ pub mod desktop {
                 std::fs::read(target)
                     .expect("read font file failed")).unwrap();
             self.fonts.get_mut().unwrap().insert(name.to_string(), font_arc);
+        }
+    }
+}
+
+pub mod android {
+    pub struct ResourcesHandles {}
+
+
+    impl Default for ResourcesHandles {
+        fn default() -> Self {
+            Self {}
         }
     }
 }
