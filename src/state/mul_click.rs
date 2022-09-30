@@ -152,6 +152,7 @@ impl GameState for MulClickState {
                                     x.radius += s.dt * (dur - 1.0).powf(4.0) * 100.0;
                                 }
                             }
+                            dbg!(self.effects[5].radius);
                         } else {
                             self.end_time = Some(now);
                             let center = [if self.cur_progress > 0.0 { max_rect.max.x - 100.0 } else { 100.0 }, max_rect.height() / 2.0];

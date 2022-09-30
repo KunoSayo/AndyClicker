@@ -138,7 +138,7 @@ impl InvertColorRenderer {
                 [x, y]
             };
             for x in circles.chunks(16) {
-                for (idx, x) in x.iter().enumerate() {
+                for (idx, x) in x.iter().filter(|x| x.radius > 0.0).enumerate() {
                     for i in 0..4 {
                         let pos = to_normal(x, i);
                         let offset = idx * 8 * 4 + i * 8;
