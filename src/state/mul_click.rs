@@ -1,10 +1,11 @@
 use std::default::Default;
 use std::time::SystemTime;
 
-use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, Ui};
+use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, TouchPhase, Ui};
 use egui::TextureFilter::Nearest;
 use specs::WorldExt;
 use winit::event::{VirtualKeyCode, WindowEvent};
+use winit::event::ElementState::Pressed;
 
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
 use crate::engine::invert_color::{InvertColorCircle, InvertColorRenderer};
@@ -45,6 +46,7 @@ pub struct MulClickState {
     a: f32,
     win_target: f32,
     effects: Vec<InvertColorCircle>,
+    exit: bool,
 }
 
 impl MulClickState {
@@ -75,6 +77,7 @@ impl MulClickState {
             a: 0.0,
             end_time: None,
             effects: vec![],
+            exit: false,
         }
     }
 
@@ -118,7 +121,7 @@ impl GameState for MulClickState {
     }
 
     fn update(&mut self, s: &mut StateData) -> (Trans, LoopState) {
-        (if s.window.inputs.cur_frame_input.pressing.contains(&VirtualKeyCode::Escape) { Trans::Pop } else { Trans::None }, LoopState::POLL)
+        (if self.exit || s.window.inputs.cur_frame_input.pressing.contains(&VirtualKeyCode::Escape) { Trans::Pop } else { Trans::None }, LoopState::POLL)
     }
 
     fn render(&mut self, s: &mut StateData, ctx: &Context) -> Trans {
@@ -135,6 +138,15 @@ impl GameState for MulClickState {
                     if self.cur_progress.abs() < self.win_target {
                         let now = SystemTime::now();
                         for x in &s.window.egui_ctx.input().events {
+                            if let Event::Touch { pos, phase, .. } = x {
+                                if *phase == TouchPhase::Start {
+                                    if pos.x < max_rect.width() / 2.0 {
+                                        self.a += self.left_click.click(now);
+                                    } else if pos.x > max_rect.width() / 2.0 {
+                                        self.a -= self.right_click.click(now);
+                                    }
+                                }
+                            }
                             self.on_event(x, now);
                         }
                     } else {
@@ -237,6 +249,14 @@ impl GameState for MulClickState {
             if let Some(render) = &s.window.render {
                 if let Some(renderer) = s.window.world.try_fetch::<InvertColorRenderer>() {
                     renderer.render(s.window, &render.views.get_screen().view, &self.effects[..]);
+                }
+            }
+        }
+        #[cfg(target_os = "android")]
+        if let StateEvent::Window(event) = e {
+            if let WindowEvent::KeyboardInput { input, .. } = event {
+                if input.scancode == 0 && input.state == Pressed {
+                    self.exit = true;
                 }
             }
         }

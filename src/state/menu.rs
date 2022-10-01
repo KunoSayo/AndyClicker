@@ -68,18 +68,17 @@ impl GameState for MainMenu {
                 let size = Vec2::new(ui.max_rect().width() / 4.0, ui.max_rect().height() / 4.0);
                 ui.allocate_ui_at_rect(Rect {
                     min: Default::default(),
-                    max: Pos2::new(ui.max_rect().width(), ui.max_rect().height() - 600.0),
+                    max: Pos2::new(ui.max_rect().width(), ui.max_rect().height() - 600.0 * ui.available_height() / 900.0),
                 }, |ui| {
                     ui.horizontal_centered(|ui| {
-                        ui.add_space(size.x);
                         ui.heading("Win Target:");
                         ui.add(Slider::new(&mut self.win_target, 100.0..=1000.0));
                         let mut started = false;
                         if ui.add_sized(size, Button::new("Start")).clicked() {
                             started = true;
                         }
-                        ui.heading("BGM Vol:");
                         if let Some(h) = &mut self.handle {
+                            ui.heading("BGM Vol:");
                             if ui.add(Slider::new(&mut self.vol, 0.0..=1.0)).changed() {
                                 println!("Changed");
                                 h.set_volume(Volume::Amplitude(self.vol as _), Tween {
@@ -99,7 +98,6 @@ impl GameState for MainMenu {
                     });
                 });
                 ui.horizontal_centered(|ui| {
-                    ui.add_space(size.x);
                     ui.heading("Left Color:");
                     ui.color_edit_button_rgb(&mut self.left_color);
                     ui.add_space(size.x);
@@ -122,5 +120,24 @@ impl GameState for MainMenu {
             ui.add(Image::new(tex.id(), ui.max_rect().max.to_vec2())
                 .tint(Color32::from_rgb(a, a, a)));
         });
+    }
+
+    fn on_event(&mut self, s: Option<&mut StateData>, e: StateEvent) {
+        if matches!(e, StateEvent::FoundGPU) {
+            let s = s.unwrap();
+            if !s.window.world.has_value::<InvertColorRenderer>() {
+                if let Some(gpu) = &s.window.gpu {
+                    s.window.world.insert(InvertColorRenderer::new(gpu));
+                }
+            }
+            if self.bg.is_some() {
+                self.bg = None;
+                self.bg.get_or_insert_with(|| {
+                    s.window.egui_ctx.load_texture("bg",
+                                                   crate::engine::assets::load_image_from_memory(include_bytes!("../../sign/bg.png")).unwrap(),
+                                                   egui::TextureFilter::Linear)
+                });
+            }
+        }
     }
 }

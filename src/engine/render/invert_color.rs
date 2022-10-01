@@ -1,6 +1,11 @@
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl, IndexFormat, LoadOp, Operations, PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, SamplerBindingType, ShaderStages, TextureFormat, TextureSampleType, TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer,
+           BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl,
+           LoadOp, Operations, PrimitiveState, PrimitiveTopology,
+           RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+           TextureSampleType, TextureView, TextureViewDimension,
+           VertexAttribute, VertexBufferLayout, VertexFormat};
 
 use crate::engine::app::WindowInstance;
 use crate::engine::WgpuData;
@@ -31,7 +36,6 @@ impl InvertColorRenderer {
         let texture_format = state.surface_cfg.format;
         let device = &state.device;
         //done bind group
-
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
             size: (std::mem::size_of::<InvertColorVertexData>() as u64 * 16 * 4),
@@ -49,7 +53,6 @@ impl InvertColorRenderer {
         let shader = device.create_shader_module(wgsl);
 
 
-        let vertex_len = std::mem::size_of::<InvertColorVertexData>();
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -57,7 +60,7 @@ impl InvertColorRenderer {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[VertexBufferLayout {
-                    array_stride: vertex_len as u64,
+                    array_stride: VERTEX_DATA_SIZE as u64,
                     step_mode: Default::default(),
                     attributes: &[VertexAttribute {
                         format: VertexFormat::Float32x2,
@@ -88,7 +91,7 @@ impl InvertColorRenderer {
             }),
             primitive: PrimitiveState {
                 topology: PrimitiveTopology::TriangleStrip,
-                ..std::default::Default::default()
+                ..Default::default()
             },
             depth_stencil: None,
             multisample: Default::default(),
@@ -115,8 +118,7 @@ impl InvertColorRenderer {
             },
         })];
         {
-            let mut data = Vec::new();
-            data.resize((VERTEX_DATA_SIZE * 16) * 4, 0u8);
+            let mut data = Vec::with_capacity(VERTEX_DATA_SIZE * 16 * 4);
             let to_normal = |obj: &InvertColorCircle, i| {
                 // 0 1
                 // 2 3
@@ -138,14 +140,13 @@ impl InvertColorRenderer {
                 [x, y]
             };
             for x in circles.chunks(16) {
-                for (idx, x) in x.iter().filter(|x| x.radius > 0.0).enumerate() {
+                data.clear();
+                let render_len = x.iter().filter(|x| x.radius > 0.0).inspect(|x| {
                     for i in 0..4 {
                         let pos = to_normal(x, i);
-                        let offset = idx * 8 * 4 + i * 8;
-                        let range = offset..offset + 8;
-                        data[range].copy_from_slice(bytemuck::cast_slice(&pos[..]));
+                        data.extend_from_slice(bytemuck::cast_slice(&pos[..]));
                     }
-                }
+                }).count();
                 gpu.queue.write_buffer(&self.vertex_buffer, 0, &data[..]);
                 gpu.queue.submit(None);
                 let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Invert Color Encoder") });
@@ -156,7 +157,7 @@ impl InvertColorRenderer {
                 });
                 rp.set_pipeline(&self.render_pipeline);
                 rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                for i in 0..x.len() {
+                for i in 0..render_len {
                     let i = i as u32;
                     rp.draw(i * 4..4 + i * 4, 0..1);
                 }

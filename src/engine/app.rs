@@ -285,9 +285,8 @@ impl Application {
         let mut game_draw_requested = false;
         let mut pressed_keys = HashSet::new();
         let mut released_keys = HashSet::new();
-
+        let mut pausing = false;
         event_loop.run(move |event, _, control_flow| {
-            println!("Get event: {:?}", event);
             if let Event::WindowEvent { event, .. } = &event {
                 self.window.egui_state.on_event(&self.window.egui_ctx, event);
                 for x in &mut self.states {
@@ -310,27 +309,35 @@ impl Application {
                 } => {
                     *control_flow = ControlFlow::Exit
                 }
+                Event::Suspended => {
+                    pausing = true;
+                    #[cfg(target_os = "android")]
+                    {
+                        self.window.gpu = None;
+                    }
+                }
                 Event::Resumed => {
+                    pausing = false;
                     if self.window.gpu.is_none() {
-                        log::info!("gpu not found, try to init");
+                        info!("gpu not found, try to init");
                         self.window.gpu = WgpuData::new(&self.window.window).ok();
                         if let Some(gpu) = &self.window.gpu {
                             self.window.render = Some(MainRendererData::new(gpu, &self.window.res));
+                            let mut sd = get_state!(self);
+                            self.states.iter_mut().for_each(|x| x.on_event(Some(&mut sd), StateEvent::FoundGPU));
                         }
                         self.window.egui_ctx = Context::default();
                         let mut size = self.window.window.inner_size();
+                        self.window.egui_ctx.set_pixels_per_point(self.window.window.scale_factor() as f32);
                         self.window.egui_state.on_event(&self.window.egui_ctx, &WindowEvent::Resized(size));
-                        self.window.egui_state.on_event(&self.window.egui_ctx, &WindowEvent::ScaleFactorChanged {
-                            scale_factor: self.window.window.scale_factor(),
-                            new_inner_size: &mut size,
-                        });
                     }
                 }
                 Event::WindowEvent {
                     event: WindowEvent::Resized(size), ..
                 } => {
-                    if size.width > 0 || size.height > 0 {
+                    if size.width > 1 && size.height > 1 {
                         if let Some(gpu) = &mut self.window.gpu {
+                            info!("Window resized, telling gpu data");
                             gpu.resize(size.width, size.height);
                             if let Some(render) = &mut self.window.render {
                                 render.views = MainRenderViews::new(gpu);

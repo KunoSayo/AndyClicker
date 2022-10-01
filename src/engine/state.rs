@@ -18,6 +18,7 @@ pub enum Trans {
 
 #[derive(Debug, Copy, Clone)]
 pub enum StateEvent<'a> {
+    FoundGPU,
     PostUiRender,
     Window(&'a WindowEvent<'a>),
 }
