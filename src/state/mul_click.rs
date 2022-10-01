@@ -8,8 +8,6 @@ use winit::event::VirtualKeyCode;
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
 use crate::engine::invert_color::{InvertColorCircle, InvertColorRenderer};
 
-;
-
 #[derive(Default)]
 struct ClickData {
     last_click: Option<SystemTime>,
@@ -261,9 +259,9 @@ impl GameState for MulClickState {
             }
         }
         #[cfg(target_os = "android")]
-        if let StateEvent::Window(event) = e {
-            if let WindowEvent::KeyboardInput { input, .. } = event {
-                if input.scancode == 0 && input.state == Pressed {
+        if let crate::engine::StateEvent::Window(event) = e {
+            if let winit::event::WindowEvent::KeyboardInput { input, .. } = event {
+                if input.scancode == 0 && input.state == winit::event::ElementState::Pressed {
                     self.exit = true;
                 }
             }

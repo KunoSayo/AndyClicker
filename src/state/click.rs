@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use egui::{Button, Context, Event, Frame, Key, Pos2, Rect, Ui, Vec2};
+use egui::{Button, Context, Frame, Pos2, Rect, Vec2};
 use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, Trans};
