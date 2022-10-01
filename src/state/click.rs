@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::time::SystemTime;
 
 use egui::{Button, Context, Event, Frame, Key, Pos2, Rect, Ui, Vec2};
@@ -51,13 +50,12 @@ impl GameState for ClickState {
                     min: Pos2::new(0.0, 0.0),
                     max: ui.max_rect().max,
                 }, |ui| {
-                    let mut bs = Vec2::new(ui.max_rect().width(), ui.max_rect().height() / 4.0);
+                    let bs = Vec2::new(ui.max_rect().width(), ui.max_rect().height() / 4.0);
                     ui.add_enabled_ui(self.click.is_some(), |ui| {
                         if ui.add_sized(bs, Button::new("Reset")).clicked() {
                             self.click = None;
                         }
                     });
-                    let delta = bs.x;
                     ui.horizontal(|ui| {
                         if ui.add_sized(bs, Button::new("Click")).clicked() {
                             self.click();
@@ -89,24 +87,4 @@ impl GameState for ClickState {
             });
         Trans::None
     }
-}
-
-fn get_key_press_times(ui: &Ui, k: Key, last: &mut bool) -> (usize) {
-    let mut ret = 0;
-    for x in &ui.input().events {
-        match x {
-            Event::Key { key, pressed, .. } if key == &k => {
-                if *pressed {
-                    if !*last {
-                        ret += 1;
-                        *last = true;
-                    }
-                } else {
-                    *last = false;
-                }
-            }
-            _ => {}
-        }
-    }
-    ret
 }

@@ -3,12 +3,12 @@ use std::time::SystemTime;
 
 use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, TouchPhase, Ui};
 use egui::TextureFilter::Nearest;
-use specs::WorldExt;
-use winit::event::{VirtualKeyCode, WindowEvent};
-use winit::event::ElementState::Pressed;
+use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
 use crate::engine::invert_color::{InvertColorCircle, InvertColorRenderer};
+
+;
 
 #[derive(Default)]
 struct ClickData {
@@ -137,17 +137,25 @@ impl GameState for MulClickState {
                     }
                     if self.cur_progress.abs() < self.win_target {
                         let now = SystemTime::now();
+                        let mut left_count = 0;
+                        let mut right_count = 0;
                         for x in &s.window.egui_ctx.input().events {
                             if let Event::Touch { pos, phase, .. } = x {
                                 if *phase == TouchPhase::Start {
                                     if pos.x < max_rect.width() / 2.0 {
-                                        self.a += self.left_click.click(now);
+                                        left_count += 1;
                                     } else if pos.x > max_rect.width() / 2.0 {
-                                        self.a -= self.right_click.click(now);
+                                        right_count += 1;
                                     }
                                 }
                             }
                             self.on_event(x, now);
+                        }
+                        if left_count > 0 {
+                            self.a += self.left_click.click(now) * left_count as f32;
+                        }
+                        if right_count > 0 {
+                            self.a -= self.right_click.click(now) * right_count as f32;
                         }
                     } else {
                         if let Some(end_time) = self.end_time {

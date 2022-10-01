@@ -1,14 +1,14 @@
 use std::io::Cursor;
 use std::time::Duration;
 
-use egui::{Button, Color32, Context, Frame, Image, Key, Pos2, Rect, Slider, SliderOrientation, Vec2};
+use egui::{Button, Color32, Context, Frame, Image, Pos2, Rect, Slider, Vec2};
 use kira::{LoopBehavior, Volume};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
 use kira::tween::{Easing, Tween};
 use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
-use crate::engine::invert_color::{InvertColorCircle, InvertColorRenderer};
+use crate::engine::invert_color::InvertColorRenderer;
 
 pub struct MainMenu {
     win_target: f32,

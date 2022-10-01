@@ -43,6 +43,7 @@ pub mod desktop {
     }
 
     impl ResourcesHandles {
+        #[allow(unused)]
         pub fn load_font(&mut self, name: &str, file_path: &str) {
             let target = self.assets_dir.join("font").join(file_path);
             let font_arc = FontArc::try_from_vec(
