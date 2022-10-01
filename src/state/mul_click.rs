@@ -172,7 +172,8 @@ impl GameState for MulClickState {
                             }
                         } else {
                             self.end_time = Some(now);
-                            let center = [if self.cur_progress > 0.0 { max_rect.max.x - 100.0 } else { 100.0 }, max_rect.height() / 2.0];
+                            let center = [if self.cur_progress > 0.0 { max_rect.max.x - 100.0 } else { 100.0 },
+                                s.window.gpu.as_ref().unwrap().surface_cfg.height as f32 / 2.0];
                             self.effects.push(InvertColorCircle {
                                 center,
                                 radius: 0.0,
