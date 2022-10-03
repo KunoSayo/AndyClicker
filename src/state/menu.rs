@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+use std::f32::consts::PI;
 use std::io::Cursor;
 use std::time::Duration;
 
@@ -5,10 +7,36 @@ use egui::{Button, Color32, Context, Frame, Image, Pos2, Rect, Slider, Vec2};
 use kira::{LoopBehavior, Volume};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
 use kira::tween::{Easing, Tween};
+use rand::{Rng, thread_rng};
+use specs::WorldExt;
 use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
 use crate::engine::invert_color::InvertColorRenderer;
+use crate::engine::point::{PointRenderer, PointVertexData};
+
+#[derive(Default)]
+pub struct QuestionSpellCard {
+    ps: VecDeque<PointVertexData>,
+    delta: VecDeque<(f32, f32)>,
+    angle: f32,
+    a: f32,
+}
+
+impl QuestionSpellCard {
+    fn create_bullet(&mut self, angle: f32, center: [f32; 2]) {
+        let d = (angle * PI / 180.0).sin_cos();
+        self.delta.push_back(d);
+        let mut rng = thread_rng();
+        let r = rng.gen();
+        let g = rng.gen();
+        let b = rng.gen();
+        self.ps.push_back(PointVertexData {
+            color: [r, g, b, 1.0],
+            pos: center,
+        });
+    }
+}
 
 pub struct MainMenu {
     win_target: f32,
@@ -17,6 +45,7 @@ pub struct MainMenu {
     right_color: [f32; 3],
     vol: f32,
     handle: Option<StaticSoundHandle>,
+    sp: QuestionSpellCard,
 }
 
 impl Default for MainMenu {
@@ -28,6 +57,7 @@ impl Default for MainMenu {
             right_color: [0.75, 0.0, 0.0],
             vol: 0.5,
             handle: None,
+            sp: Default::default(),
         }
     }
 }
@@ -38,6 +68,7 @@ impl GameState for MainMenu {
     fn start(&mut self, s: &mut StateData) {
         if let Some(gpu) = &s.window.gpu {
             s.window.world.insert(InvertColorRenderer::new(gpu));
+            s.window.world.insert(PointRenderer::new(gpu));
         }
         if let Some(al) = &mut s.window.audio {
             let music_data = include_bytes!("../../sign/th08_18.mp3");
@@ -105,6 +136,36 @@ impl GameState for MainMenu {
                     ui.color_edit_button_rgb(&mut self.right_color);
                 })
             });
+        let (w, h) = {
+            let cfg = &s.window.gpu.as_ref().unwrap().surface_cfg;
+            (cfg.width as f32, cfg.height as f32)
+        };
+        // run spellcard
+        let sp = &mut self.sp;
+        let center = [w / 2.0, h / 2.0];
+        for i in 0..3 {
+            sp.create_bullet(sp.angle + i as f32 * 120.0, center);
+        }
+        while let Some(fst) = sp.ps.front() {
+            if fst.pos[0] < -100.0 || fst.pos[1] < -100.0 || fst.pos[0] > w + 100.0 || fst.pos[1] > h + 100.0 {
+                sp.ps.pop_front();
+                sp.delta.pop_front();
+            } else {
+                break;
+            }
+        }
+        for x in sp.ps.iter_mut().zip(sp.delta.iter()) {
+            x.0.pos[0] += x.1.0 * 300.0 * s.dt;
+            x.0.pos[1] += x.1.1 * 300.0 * s.dt;
+        }
+        let pr = s.window.world.read_resource::<PointRenderer>();
+        let slice = sp.ps.as_slices();
+        pr.render(&s.window, &s.window.render.as_ref().unwrap().views.get_screen().view, slice.0);
+        pr.render(&s.window, &s.window.render.as_ref().unwrap().views.get_screen().view, slice.1);
+        sp.a += s.dt * 9.0;
+        sp.a %= 360.0;
+        sp.angle += sp.a;
+        sp.angle %= 360.0;
         ret
     }
 
@@ -118,7 +179,7 @@ impl GameState for MainMenu {
             });
             let a = 32;
             ui.add(Image::new(tex.id(), ui.max_rect().max.to_vec2())
-                .tint(Color32::from_rgb(a, a, a)));
+                .tint(Color32::from_rgba_premultiplied(a, a, a, a)));
         });
     }
 
@@ -128,6 +189,11 @@ impl GameState for MainMenu {
             if !s.window.world.has_value::<InvertColorRenderer>() {
                 if let Some(gpu) = &s.window.gpu {
                     s.window.world.insert(InvertColorRenderer::new(gpu));
+                }
+            }
+            if !s.window.world.has_value::<PointRenderer>() {
+                if let Some(gpu) = &s.window.gpu {
+                    s.window.world.insert(PointRenderer::new(gpu));
                 }
             }
             if self.bg.is_some() {

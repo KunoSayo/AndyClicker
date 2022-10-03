@@ -138,6 +138,7 @@ dependencies = [
  "ndk 0.7.0",
  "ndk-glue 0.7.0",
  "profiling",
+ "rand",
  "rayon",
  "specs",
  "wgpu",

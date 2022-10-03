@@ -1,6 +1,6 @@
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use wgpu::{BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer,
+use wgpu::{BlendFactor, BlendOperation, BlendState, Buffer,
            BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl,
            LoadOp, Operations, PrimitiveState, PrimitiveTopology,
            RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
@@ -12,33 +12,29 @@ use crate::engine::WgpuData;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Pod, Zeroable)]
 #[repr(C, align(4))]
-pub struct InvertColorVertexData {
+pub struct PointVertexData {
+    pub color: [f32; 4],
     pub pos: [f32; 2],
 }
 
-const VERTEX_DATA_SIZE: usize = std::mem::size_of::<InvertColorVertexData>();
+const VERTEX_DATA_SIZE: usize = std::mem::size_of::<PointVertexData>();
+const OBJ_VERTEX_COUNT: usize = 1;
 
-#[derive(Clone, Copy, Debug)]
-pub struct InvertColorCircle {
-    pub center: [f32; 2],
-    pub radius: f32,
-}
-
-
+#[allow(unused)]
 #[derive(Debug)]
-pub struct InvertColorRenderer {
+pub struct PointRenderer {
     render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
 }
 
-impl InvertColorRenderer {
+impl PointRenderer {
     pub fn new(state: &WgpuData) -> Self {
         let texture_format = state.surface_cfg.format;
         let device = &state.device;
         //done bind group
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
-            size: (std::mem::size_of::<InvertColorVertexData>() as u64 * 16 * 4),
+            size: (VERTEX_DATA_SIZE * OBJ_VERTEX_COUNT * 16) as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -49,7 +45,7 @@ impl InvertColorRenderer {
             push_constant_ranges: &[],
         });
 
-        let wgsl = include_wgsl!("invert_color.wgsl");
+        let wgsl = include_wgsl!("point.wgsl");
         let shader = device.create_shader_module(wgsl);
 
 
@@ -63,9 +59,13 @@ impl InvertColorRenderer {
                     array_stride: VERTEX_DATA_SIZE as u64,
                     step_mode: Default::default(),
                     attributes: &[VertexAttribute {
-                        format: VertexFormat::Float32x2,
+                        format: VertexFormat::Float32x4,
                         offset: 0,
                         shader_location: 0,
+                    }, VertexAttribute {
+                        format: VertexFormat::Float32x2,
+                        offset: 4 * 4,
+                        shader_location: 1,
                     }],
                 }],
             },
@@ -74,23 +74,12 @@ impl InvertColorRenderer {
                 entry_point: "fs_main",
                 targets: &[Some(ColorTargetState {
                     format: texture_format,
-                    blend: Some(BlendState {
-                        color: BlendComponent {
-                            src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Subtract,
-                        },
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::Zero,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                    }),
+                    blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
             }),
             primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleStrip,
+                topology: PrimitiveTopology::PointList,
                 ..Default::default()
             },
             depth_stencil: None,
@@ -104,10 +93,9 @@ impl InvertColorRenderer {
         }
     }
 
-    pub fn render<'a>(&'a self, window: &WindowInstance, render_target: &TextureView, circles: &[InvertColorCircle]) {
+    pub fn render<'a>(&'a self, window: &WindowInstance, render_target: &TextureView, points: &[PointVertexData]) {
         let gpu = if let Some(state) = &window.gpu { state } else { return; };
-
-        profiling::scope!("Invert Color new encoder");
+        profiling::scope!("Point Renderer");
         let rp_attach = [Some(RenderPassColorAttachment {
             view: render_target,
             resolve_target: None,
@@ -117,49 +105,32 @@ impl InvertColorRenderer {
             },
         })];
         {
-            let mut data = Vec::with_capacity(VERTEX_DATA_SIZE * 16 * 4);
-            let to_normal = |obj: &InvertColorCircle, i| {
-                // 0 1
-                // 2 3
-                let x = if i & 1 == 0 {
-                    obj.center[0] - obj.radius
-                } else {
-                    obj.center[0] + obj.radius
-                };
-                let y = if i < 2 {
-                    obj.center[1] - obj.radius
-                } else {
-                    obj.center[1] + obj.radius
-                };
-                //    +y
-                // -x O +x
-                //    -y
+            let mut data = Vec::with_capacity(VERTEX_DATA_SIZE * 16 * OBJ_VERTEX_COUNT);
+            let to_normal = |obj: &PointVertexData| {
+                let x = obj.pos[0];
+                let y = obj.pos[1];
                 let x = (2.0 * x / gpu.surface_cfg.width as f32) - 1.0;
                 let y = (-2.0 * y / gpu.surface_cfg.height as f32) + 1.0;
                 [x, y]
             };
-            for x in circles.chunks(16) {
+            for x in points.chunks(16) {
                 data.clear();
-                let render_len = x.iter().filter(|x| x.radius > 0.0).inspect(|x| {
-                    for i in 0..4 {
-                        let pos = to_normal(x, i);
-                        data.extend_from_slice(bytemuck::cast_slice(&pos[..]));
-                    }
+                let render_len = x.iter().inspect(|x| {
+                    let pos = to_normal(x);
+                    data.extend_from_slice(bytemuck::cast_slice(&x.color[..]));
+                    data.extend_from_slice(bytemuck::cast_slice(&pos[..]));
                 }).count();
                 gpu.queue.write_buffer(&self.vertex_buffer, 0, &data[..]);
                 gpu.queue.submit(None);
-                let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Invert Color Encoder") });
+                let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Pointer Render Encoder") });
                 let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
-                    label: Some("ic rp"),
+                    label: Some("p rp"),
                     color_attachments: &rp_attach,
                     depth_stencil_attachment: None,
                 });
                 rp.set_pipeline(&self.render_pipeline);
                 rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                for i in 0..render_len {
-                    let i = i as u32;
-                    rp.draw(i * 4..4 + i * 4, 0..1);
-                }
+                rp.draw(0..render_len as u32, 0..1);
                 drop(rp);
                 gpu.queue.submit(Some(encoder.finish()));
             }
