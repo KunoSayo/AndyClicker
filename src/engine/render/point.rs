@@ -18,7 +18,7 @@ pub struct PointVertexData {
 }
 
 const VERTEX_DATA_SIZE: usize = std::mem::size_of::<PointVertexData>();
-const OBJ_VERTEX_COUNT: usize = 1;
+const OBJ_VERTEX_COUNT: usize = 4;
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -79,7 +79,7 @@ impl PointRenderer {
                 })],
             }),
             primitive: PrimitiveState {
-                topology: PrimitiveTopology::PointList,
+                topology: PrimitiveTopology::TriangleStrip,
                 ..Default::default()
             },
             depth_stencil: None,
@@ -106,9 +106,23 @@ impl PointRenderer {
         })];
         {
             let mut data = Vec::with_capacity(VERTEX_DATA_SIZE * 16 * OBJ_VERTEX_COUNT);
-            let to_normal = |obj: &PointVertexData| {
-                let x = obj.pos[0];
-                let y = obj.pos[1];
+            let to_normal = |obj: &PointVertexData, i| {
+                let radius = 5.0;
+                // 0 1
+                // 2 3
+                let x = if i & 1 == 0 {
+                    obj.pos[0] - radius
+                } else {
+                    obj.pos[0] + radius
+                };
+                let y = if i < 2 {
+                    obj.pos[1] + radius
+                } else {
+                    obj.pos[1] - radius
+                };
+                //    +y
+                // -x O +x
+                //    -y
                 let x = (2.0 * x / gpu.surface_cfg.width as f32) - 1.0;
                 let y = (-2.0 * y / gpu.surface_cfg.height as f32) + 1.0;
                 [x, y]
@@ -116,9 +130,11 @@ impl PointRenderer {
             for x in points.chunks(16) {
                 data.clear();
                 let render_len = x.iter().inspect(|x| {
-                    let pos = to_normal(x);
-                    data.extend_from_slice(bytemuck::cast_slice(&x.color[..]));
-                    data.extend_from_slice(bytemuck::cast_slice(&pos[..]));
+                    for i in 0..4 {
+                        let pos = to_normal(x, i);
+                        data.extend_from_slice(bytemuck::cast_slice(&x.color[..]));
+                        data.extend_from_slice(bytemuck::cast_slice(&pos[..]));
+                    }
                 }).count();
                 gpu.queue.write_buffer(&self.vertex_buffer, 0, &data[..]);
                 gpu.queue.submit(None);
@@ -130,7 +146,9 @@ impl PointRenderer {
                 });
                 rp.set_pipeline(&self.render_pipeline);
                 rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                rp.draw(0..render_len as u32, 0..1);
+                for i in 0..render_len {
+                    rp.draw(i as u32 * 4..i as u32 * 4 + 4, 0..1);
+                }
                 drop(rp);
                 gpu.queue.submit(Some(encoder.finish()));
             }
