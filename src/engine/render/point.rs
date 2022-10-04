@@ -107,7 +107,7 @@ impl PointRenderer {
         {
             let mut data = Vec::with_capacity(VERTEX_DATA_SIZE * 16 * OBJ_VERTEX_COUNT);
             let to_normal = |obj: &PointVertexData, i| {
-                let radius = 5.0;
+                let radius = 3.0;
                 // 0 1
                 // 2 3
                 let x = if i & 1 == 0 {

@@ -29,7 +29,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (dis > 1.0) {
         discard;
     }
-    let dis = 1.0 - pow(1.0 - dis, 3.0);
+//    let dis = 1.0 - pow(1.0 - dis, 3.0);
 
-    return in.c * dis;
+    return in.c;
 }
