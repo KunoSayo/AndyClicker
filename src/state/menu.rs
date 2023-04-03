@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use std::io::Cursor;
 use std::time::Duration;
 
-use egui::{Button, Color32, Context, Frame, Image, Pos2, Rect, Slider, Vec2};
+use egui::{Button, Context, Frame, Pos2, Rect, Slider, Vec2};
 use kira::{LoopBehavior, Volume};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle, StaticSoundSettings};
 use kira::tween::{Easing, Tween};
@@ -169,18 +169,18 @@ impl GameState for MainMenu {
         ret
     }
 
-    fn shadow_render(&mut self, _: &StateData, ctx: &Context) {
-        egui::CentralPanel::default()
-            .frame(Frame::none()).show(ctx, |ui| {
-            let tex = self.bg.get_or_insert_with(|| {
-                ui.ctx().load_texture("bg",
-                                      crate::engine::assets::load_image_from_memory(include_bytes!("../../sign/bg.png")).unwrap(),
-                                      egui::TextureFilter::Linear)
-            });
-            let a = 32;
-            ui.add(Image::new(tex.id(), ui.max_rect().max.to_vec2())
-                .tint(Color32::from_rgba_premultiplied(a, a, a, a)));
-        });
+    fn shadow_render(&mut self, _: &StateData, _ctx: &Context) {
+        // egui::CentralPanel::default()
+        //     .frame(Frame::none()).show(ctx, |ui| {
+        //     let tex = self.bg.get_or_insert_with(|| {
+        //         ui.ctx().load_texture("bg",
+        //                               crate::engine::assets::load_image_from_memory(include_bytes!("../../sign/bg.png")).unwrap(),
+        //                               egui::TextureFilter::Linear)
+        //     });
+        //     let a = 32;
+        //     ui.add(Image::new(tex.id(), ui.max_rect().max.to_vec2())
+        //         .tint(Color32::from_rgba_premultiplied(a, a, a, a)));
+        // });
     }
 
     fn on_event(&mut self, s: Option<&mut StateData>, e: StateEvent) {
@@ -201,7 +201,7 @@ impl GameState for MainMenu {
                 self.bg.get_or_insert_with(|| {
                     s.window.egui_ctx.load_texture("bg",
                                                    crate::engine::assets::load_image_from_memory(include_bytes!("../../sign/bg.png")).unwrap(),
-                                                   egui::TextureFilter::Linear)
+                                                   egui::TextureOptions::LINEAR)
                 });
             }
         }

@@ -217,24 +217,35 @@ impl Application {
                 };
                 // Upload all resources for the GPU.
 
-                let egui_rpass = &mut render.egui_rpass;
+                let egui_renderer = &mut render.egui_rpass;
                 let paint_jobs = self.window.egui_ctx.tessellate(full_output.shapes);
                 for (id, delta) in &full_output.textures_delta.set {
-                    egui_rpass.update_texture(device, queue, *id, &delta);
+                    egui_renderer.update_texture(device, queue, *id, &delta);
                 }
-                egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
+                egui_renderer.update_buffers(&device, &queue, &mut encoder, &paint_jobs, &screen_descriptor);
+                {
+                    let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
+                        label: None,
+                        color_attachments: &[Some(RenderPassColorAttachment {
+                            view: &render.views.get_screen().view,
+                            resolve_target: None,
+                            ops: Operations {
+                                load: LoadOp::Load,
+                                store: true,
+                            },
+                        })],
+                        depth_stencil_attachment: None,
+                    });
+                    egui_renderer.render(
+                        &mut rp,
+                        &paint_jobs,
+                        &screen_descriptor,
+                    );
+                }
 
-                // Record all render passes.
-                egui_rpass.execute(
-                    &mut encoder,
-                    &render.views.get_screen().view,
-                    &paint_jobs,
-                    &screen_descriptor,
-                    None,
-                );
                 // Submit the commands.
                 queue.submit(std::iter::once(encoder.finish()));
-                full_output.textures_delta.free.iter().for_each(|id| egui_rpass.free_texture(id));
+                full_output.textures_delta.free.iter().for_each(|id| egui_renderer.free_texture(id));
             }
             {
                 let mut sd = get_state!(self);
@@ -287,7 +298,7 @@ impl Application {
         let mut released_keys = HashSet::new();
         event_loop.run(move |event, _, control_flow| {
             if let Event::WindowEvent { event, .. } = &event {
-                self.window.egui_state.on_event(&self.window.egui_ctx, event);
+                let _ = self.window.egui_state.on_event(&self.window.egui_ctx, event);
                 for x in &mut self.states {
                     x.on_event(None, StateEvent::Window(event));
                 }
@@ -326,7 +337,7 @@ impl Application {
                         self.window.egui_ctx = Context::default();
                         let size = self.window.window.inner_size();
                         self.window.egui_ctx.set_pixels_per_point(self.window.window.scale_factor() as f32);
-                        self.window.egui_state.on_event(&self.window.egui_ctx, &WindowEvent::Resized(size));
+                        let _ = self.window.egui_state.on_event(&self.window.egui_ctx, &WindowEvent::Resized(size));
                     }
                 }
                 Event::WindowEvent {

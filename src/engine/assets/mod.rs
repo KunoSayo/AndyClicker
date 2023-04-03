@@ -10,7 +10,6 @@ pub use progress::*;
 pub mod progress;
 pub mod manager;
 
-pub type TexHandle = u32;
 
 #[derive(Debug)]
 pub struct TextureWrapper {

@@ -52,10 +52,10 @@ impl WgpuData {
             let size = window.inner_size();
             log::info!("Got window inner size {:?}", size);
 
-            let instance = Instance::new(util::backend_bits_from_env().unwrap_or(Backends::PRIMARY));
+            let instance = Instance::new(InstanceDescriptor::default());
             log::info!("Got wgpu  instance {:?}", instance);
             log::info!("Window is visible, try surface.");
-            let surface = unsafe { instance.create_surface(window.0) };
+            let surface = unsafe { instance.create_surface(window.0)? };
             log::info!("Created surface {:?}", surface);
             let adapter = block_on(instance
                 .request_adapter(&RequestAdapterOptions {
@@ -79,9 +79,7 @@ impl WgpuData {
             let (device, queue) = (Arc::new(device), Arc::new(queue));
             log::info!("Requested device {:?} and queue {:?}", device, queue);
 
-            let formats = surface.get_supported_formats(&adapter);
-            log::info!("Adapter chose {:?} for swap chain format", formats);
-            let format = if formats.contains(&TextureFormat::Bgra8Unorm) { TextureFormat::Bgra8Unorm } else { formats[0] };
+            let format = TextureFormat::Bgra8Unorm;
             log::info!("Using {:?} for swap chain format", format);
 
             let surface_cfg = SurfaceConfiguration {
@@ -90,6 +88,8 @@ impl WgpuData {
                 width: size.width,
                 height: size.height,
                 present_mode: PresentMode::Fifo,
+                alpha_mode: Default::default(),
+                view_formats: vec![format],
             };
             surface.configure(&device, &surface_cfg);
 
@@ -155,7 +155,7 @@ pub struct MainRenderViews {
 pub struct MainRendererData {
     pub staging_belt: util::StagingBelt,
     pub views: MainRenderViews,
-    pub egui_rpass: egui_wgpu::renderer::RenderPass,
+    pub egui_rpass: egui_wgpu::Renderer,
 }
 
 impl Debug for MainRendererData {
@@ -170,7 +170,7 @@ impl MainRendererData {
     pub fn new(gpu: &WgpuData, _handles: &ResourcesHandles) -> Self {
         let staging_belt = util::StagingBelt::new(2048);
         let views = MainRenderViews::new(gpu);
-        let egui_rpass = egui_wgpu::renderer::RenderPass::new(&gpu.device, gpu.surface_cfg.format, 1);
+        let egui_rpass = egui_wgpu::Renderer::new(&gpu.device, gpu.surface_cfg.format, None, 1);
         Self {
             staging_belt,
             views,
@@ -195,6 +195,7 @@ impl MainRenderViews {
             dimension: TextureDimension::D2,
             format: state.surface_cfg.format,
             usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[state.surface_cfg.format],
         };
         let sampler_desc = SamplerDescriptor {
             address_mode_u: AddressMode::ClampToEdge,

@@ -1,6 +1,6 @@
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use wgpu::{BlendFactor, BlendOperation, BlendState, Buffer,
+use wgpu::{BlendState, Buffer,
            BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, include_wgsl,
            LoadOp, Operations, PrimitiveState, PrimitiveTopology,
            RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,

@@ -1,8 +1,7 @@
 use std::default::Default;
 use std::time::SystemTime;
 
-use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, TouchPhase, Ui};
-use egui::TextureFilter::Nearest;
+use egui::{Color32, Context, Event, Frame, Image, Key, Label, Pos2, Rect, RichText, TextureHandle, TextureOptions, TouchPhase, Ui};
 use winit::event::VirtualKeyCode;
 
 use crate::engine::{GameState, LoopState, StateData, StateEvent, Trans};
@@ -54,12 +53,12 @@ impl MulClickState {
                                          egui::ColorImage::new([1, 1],
                                                                Color32::from_rgb(
                                                                    to(left_color[0]), to(left_color[1]), to(left_color[2]))),
-                                         Nearest);
+                                         TextureOptions::NEAREST);
         let right = ui.ctx().load_texture("right-color",
                                           egui::ColorImage::new([1, 1],
                                                                 Color32::from_rgb(
                                                                     to(right_color[0]), to(right_color[1]), to(right_color[2]))),
-                                          Nearest);
+                                          TextureOptions::NEAREST);
         Self {
             start_time: None,
             left_click: Default::default(),
@@ -137,18 +136,20 @@ impl GameState for MulClickState {
                         let now = SystemTime::now();
                         let mut left_count = 0;
                         let mut right_count = 0;
-                        for x in &s.window.egui_ctx.input().events {
-                            if let Event::Touch { pos, phase, .. } = x {
-                                if *phase == TouchPhase::Start {
-                                    if pos.x < max_rect.width() / 2.0 {
-                                        left_count += 1;
-                                    } else if pos.x > max_rect.width() / 2.0 {
-                                        right_count += 1;
+                        s.window.egui_ctx.input(|is| {
+                            for x in &is.events {
+                                if let Event::Touch { pos, phase, .. } = x {
+                                    if *phase == TouchPhase::Start {
+                                        if pos.x < max_rect.width() / 2.0 {
+                                            left_count += 1;
+                                        } else if pos.x > max_rect.width() / 2.0 {
+                                            right_count += 1;
+                                        }
                                     }
                                 }
+                                self.on_event(x, now);
                             }
-                            self.on_event(x, now);
-                        }
+                        });
                         if left_count > 0 {
                             self.a += self.left_click.click(now) * left_count as f32;
                         }
